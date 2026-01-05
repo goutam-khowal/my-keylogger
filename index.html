@@ -115,7 +115,8 @@
 
       const a = document.createElement("a")
       a.href = url
-      a.download = "logged-keys.txt"
+      const d = new Date();
+      a.download = `logged-keys-${d.toLocaleDateString()+d.toLocaleTimeString()}.txt`
       document.body.appendChild(a)
       a.click()
       a.remove()
