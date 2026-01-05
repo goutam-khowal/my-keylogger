@@ -5,14 +5,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>My Keylogger</title>
-  <link rel="shortcut icon" href="key.png" type="image/x-icon">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 
-<body class="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-8">
+<body class="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-8 p-4">
   <h1 class="text-center text-4xl font-extrabold tracking-tight text-sky-400 drop-shadow-sm">
     Key Logger
   </h1>
+
+  <!-- Hidden input for mobile virtual keyboard -->
+  <input id="virtualKeyboardInput" class="absolute opacity-0 pointer-events-auto w-full h-12" autocapitalize="off" autocomplete="off" autocorrect="off" style="font-size: 16px; position: fixed; top: 0; left: 0; z-index: 9999;">
 
   <div class="flex w-full max-w-md mx-auto justify-center gap-3">
     <button id="startBtn" class="px-5 py-2.5 text-sm font-semibold rounded-xl border border-sky-500/60
@@ -20,8 +22,7 @@
            transition-all duration-200
            hover:bg-sky-400 hover:border-sky-400 hover:shadow-md hover:shadow-sky-400/40
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
-           disabled:opacity-40
-           disabled:cursor-not-allowed
+           disabled:opacity-40 disabled:cursor-not-allowed
            disabled:hover:bg-sky-500 disabled:hover:border-sky-500 disabled:hover:shadow-sm">
       Start Logging Keys
     </button>
@@ -31,8 +32,7 @@
            transition-all duration-200
            hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 hover:shadow-md
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900
-           disabled:opacity-40
-           disabled:cursor-not-allowed
+           disabled:opacity-40 disabled:cursor-not-allowed
            disabled:hover:bg-slate-800 disabled:hover:text-slate-100 disabled:hover:border-slate-600">
       Stop Logging Keys
     </button>
@@ -40,18 +40,17 @@
 
   <div class="w-full max-w-3xl flex flex-col md:flex-row gap-4 px-4">
     <div id="log" class="flex-1 bg-slate-800/70 border border-slate-700 rounded-xl 
-           px-4 py-3 text-base font-semibold text-sky-300 h-16
-           flex items-center shadow-inner">
+           px-4 py-3 text-base font-semibold text-sky-300 h-16 flex items-center shadow-inner">
     </div>
 
     <div id="state" class="flex-1 bg-slate-800/70 border border-slate-700 rounded-xl 
-           px-4 py-3 text-base font-semibold text-emerald-300 h-16
-           flex items-center shadow-inner">
+           px-4 py-3 text-base font-semibold text-emerald-300 h-16 flex items-center shadow-inner">
     </div>
   </div>
 
-  <button id="extractBtn" class="mt-2 px-4 py-2 text-sm font-semibold rounded-xl bg-rose-500 text-white
-           hover:bg-rose-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+  <button id="extractBtn" class="mt-2 px-6 py-2.5 text-sm font-semibold rounded-xl bg-rose-500 text-white
+                 hover:bg-rose-400 transition-all shadow-sm hover:shadow-md
+                 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
     Extract Logged Keys
   </button>
 
@@ -61,67 +60,86 @@
     const logDiv = document.getElementById("log")
     const stateDiv = document.getElementById("state")
     const extractBtn = document.getElementById("extractBtn")
+    const virtualInput = document.getElementById("virtualKeyboardInput")
 
     const activeKeys = new Set()
     const allCombinations = []
 
+    let isLogging = false
+
     startBtn.addEventListener("click", () => {
+      isLogging = true
       startBtn.disabled = true
       stopBtn.disabled = false
       extractBtn.disabled = false
+
+      // Focus input for mobile keyboard
+      virtualInput.focus({
+        preventScroll: true
+      })
+
       document.addEventListener("keydown", handleDown)
       document.addEventListener("keyup", handleUp)
     })
 
     stopBtn.addEventListener("click", () => {
+      isLogging = false
       startBtn.disabled = false
       stopBtn.disabled = true
-      extractBtn.disabled = false
+
       document.removeEventListener("keydown", handleDown)
       document.removeEventListener("keyup", handleUp)
-      allCombinations.length = 0
     })
 
     extractBtn.addEventListener("click", extractLoggedKeys)
 
     function handleDown(e) {
+      if (!isLogging) return
+
       activeKeys.add(e.key)
-      const combo = [...activeKeys].join(" + ")
+      const combo = [...activeKeys].sort().join(" + ")
       logDiv.textContent = `Pressed: ${combo}`
       stateDiv.textContent = `Keys Down: ${combo}`
     }
 
     function handleUp(e) {
-      const combo = [...activeKeys].join(" + ")
-      allCombinations.push(`Released: ${e.key} | Down: ${combo}`)
-      activeKeys.delete(e.key)
+      if (!isLogging) return
 
-      const remaining = [...activeKeys].join(" + ")
-      logDiv.textContent = e.key ? `Released: ${e.key}` : ""
-      stateDiv.textContent = remaining ?
-        `Keys Down: ${remaining}` :
-        "No keys pressed"
+      const combo = [...activeKeys].sort().join(" + ")
+      allCombinations.push(`${new Date().toLocaleTimeString()}: Released ${e.key} | Down: ${combo}`)
+
+      activeKeys.delete(e.key)
+      const remaining = [...activeKeys].sort().join(" + ")
+
+      logDiv.textContent = `Released: ${e.key}`
+      stateDiv.textContent = remaining ? `Keys Down: ${remaining}` : "No keys pressed"
     }
 
     function extractLoggedKeys() {
-      if (allCombinations.length == 0) {
-        return;
-      }
-      const text = allCombinations.join("\n")
+      const text = allCombinations.length ?
+        allCombinations.join("\n") :
+        "No keys logged yet"
+
       const blob = new Blob([text], {
-        type: "text/plain"
+        type: "text/plain;charset=utf-8"
       })
       const url = URL.createObjectURL(blob)
 
       const a = document.createElement("a")
       a.href = url
-      const d = new Date();
-      a.download = `logged-keys-${d.toLocaleDateString()+d.toLocaleTimeString()}.txt`
+      a.download = `keylog-${new Date().toISOString().slice(0,10)}.txt`
       document.body.appendChild(a)
       a.click()
-      a.remove()
+      document.body.removeChild(a)
       URL.revokeObjectURL(url)
     }
+
+    // Prevent virtual keyboard from hiding on body touch (mobile)
+    document.body.addEventListener("touchstart", (e) => {
+      if (isLogging) e.preventDefault()
+    }, {
+      passive: false
+    })
   </script>
 </body>
 
